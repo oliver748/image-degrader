@@ -9,9 +9,10 @@ image_path = str(input("Image path: "))
 
 def main():
     image_degrader = degrader.ImageDegrader()
-    image_degrader.degrade_image(
-        image_path=image_path,
-        saturation=100
+    image_degrader.batch_degrade_images(
+        input_dir=images_dir,
+        saturation=0,
+        suffix="eee"
     )
 
 if __name__ == "__main__":

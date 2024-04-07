@@ -7,15 +7,9 @@ import os
 import utils.logger as logg
 import utils.file_handler as file_handler
 import utils.image_manipulator as image_manipulator
-from PIL import Image, ImageEnhance
-import random
 
 
 class ImageDegrader:
-    """
-    Degrade images by applying different filters, effects etc.
-    """
-
     def __init__(self):
         self.logger = logg.Logger("ImageDegrader", logg.logging.DEBUG)
         self.file_handler = file_handler.FileHandler()
@@ -59,23 +53,33 @@ class ImageDegrader:
             sharpness=None,
             noise=None,
             quality=100,
+            prefix="",
+            suffix="",
         ):
 
         # check its path
         if not self.file_handler.verify_path(image_path):
-            self.logger.error(f"Image at path \"{image_path}\" not found.")
+            # make sure to not raise an error if its batch mode, because we want to continue
+            if mode == "single":
+                raise FileNotFoundError(f"Image at path \"{image_path}\" not found.")
+            elif mode == "batch": 
+                self.logger.error(f"Image at path \"{image_path}\" not found. Skipping image...")
             return
 
         if mode == "single":
             os.makedirs(output_dir, exist_ok=True)
 
         self.logger.info(f"Processing image: \"{image_path}\"")
+
         image = self.im.open_image(image_path)
         
         # if image is invalid
         if image is None:
-            self.logger.error(f"Image at path \"{image_path}\" could not be processed.")
-            return
+            if mode == "single":
+                raise ValueError(f"Image at path \"{image_path}\" is invalid.")
+            elif mode == "batch": 
+                self.logger.error(f"Image at path \"{image_path}\" is invalid. Skipping image...")
+                return
 
         if saturation:
             image = self.im.saturate(image, saturation)
@@ -91,38 +95,39 @@ class ImageDegrader:
         
         if noise:
             image = self.im.apply_noise(image, noise)
-        
-        #self.im.save_image(image, output_dir, os., output_format, quality)
-        self.im.save_image(image, output_dir, os.path.basename(image_path), output_format, quality)
+
+        image_name = os.path.splitext(os.path.basename(image_path))[0]
+        output_path = os.path.join(output_dir, f"{prefix}{image_name}{suffix}.{output_format}")
+
+        self.im.save_image(image, output_path, quality=quality)
         self.logger.info(f"Image saved to \"{output_dir}\"")
-        
-
-        
-
 
     def batch_degrade_images(
             self,
             input_dir,
             output_dir="result",
-            output_format="jpeg",
+            output_format="jpg",
             saturation=None,
             brightness=None,
             contrast=None,
             sharpness=None,
-            noise=50,
+            noise=None,
             quality=100,
+            prefix="",
+            suffix="",
         ):
+
         # check the input dir path
         if not self.file_handler.verify_path(input_dir):
             raise FileNotFoundError(f"Folder path \"{input_dir}\" not found.")
-            return
         
-        os.makedirs(output_dir, exist_ok=True)
+        image_files = self.file_handler.get_images(dir_path=input_dir)
 
-        for image_path in self.image_files:
-            self.logger.info(f"Processing image: \"{image_path}\"")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        for image_path in image_files:
             self.degrade_image(
-                image_path,
+                image_path=image_path,
                 mode="batch",
                 output_dir=output_dir,
                 output_format=output_format,
@@ -131,5 +136,7 @@ class ImageDegrader:
                 contrast=contrast,
                 sharpness=sharpness,
                 noise=noise,
-                quality=quality
+                quality=quality,
+                prefix=prefix,
+                suffix=suffix,
             )

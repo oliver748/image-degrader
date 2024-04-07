@@ -115,10 +115,10 @@ class ImageManipulator:
         return Image.fromarray(noisy_image)
 
     @staticmethod
-    def save_image(image, output_dir, image_name, output_file_ext, value):
+    def save_image(image, output_path, quality):
         """
         Change the quality of an image.
         :param value: int: The value to change the quality of the image
         """
-        #return image.save(output_path, quality=value)
-        return image.save(os.path.join(output_dir, image_name), output_file_ext, quality=value)
+
+        return image.save(output_path, quality=quality)
