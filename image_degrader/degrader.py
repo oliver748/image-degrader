@@ -4,42 +4,18 @@ import sys
 sys.path.append("image_degrader")
 
 import os
-import utils.logger as logg
+import utils.logger as logger
 import utils.file_handler as file_handler
 import utils.image_manipulator as image_manipulator
-
+import utils.time_take as time_take
 
 class ImageDegrader:
-    def __init__(self):
-        self.logger = logg.Logger("ImageDegrader", logg.logging.DEBUG)
+    def __init__(self, debug=False):
+        self.logger = logger.Logger("ImageDegrader", logger.logging.DEBUG)
         self.file_handler = file_handler.FileHandler()
         self.im = image_manipulator.ImageManipulator()
-
-
-        # self.images_dir = images_dir
-        # self.image_files = self.file_handler.get_images(dir_path=images_dir) if images_dir else None
-        # self.image_path = image_path if image_path else None
-
-        # self.verify_env()
-
-    # def verify_env(self):
-    #     if self.image_files is None and self.image_path is None:
-    #         raise ValueError("Please provide either an images directory or an image path.")
-        
-    #     if self.image_files is not None and self.image_path is not None:
-    #         raise ValueError("Please provide either an images directory or an image path, not both.")
-        
-    #     # check the path
-    #     # TODO: Måske ikke nødvendig, burde tjekkes
-    #     if self.image_files:
-    #         if not self.file_handler.verify_path(self.images_dir):
-    #             raise FileNotFoundError(f"Folder path \"{self.images_dir}\" not found.")
-            
-    #     if self.image_path:
-    #         if not self.file_handler.verify_path(self.image_path):
-    #             raise FileNotFoundError(f"Image path \"{self.image_path}\" not found.")
-    
-
+        self.time_take = time_take.TimeTake(debug=debug)
+        self.debug = debug
     
     def degrade_image(
             self,
@@ -52,6 +28,16 @@ class ImageDegrader:
             contrast=None,
             sharpness=None,
             noise=None,
+            simple_noise=None,
+            complex_noise=None,
+            complex_noise_mode="gaussian",
+            remove_black_borders=False,
+            blur=None,
+            simple_edge_detection=None,
+            crop=None,
+            rotate=None,
+            resize=None,
+            scale=None,
             quality=100,
             prefix="",
             suffix="",
@@ -66,11 +52,12 @@ class ImageDegrader:
                 self.logger.error(f"Image at path \"{image_path}\" not found. Skipping image...")
             return
 
-        if mode == "single":
-            os.makedirs(output_dir, exist_ok=True)
-
         self.logger.info(f"Processing image: \"{image_path}\"")
 
+        # create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # open image
         image = self.im.open_image(image_path)
         
         # if image is invalid
@@ -93,50 +80,39 @@ class ImageDegrader:
         if sharpness:
             image = self.im.sharpen(image, sharpness)
         
-        if noise:
-            image = self.im.apply_noise(image, noise)
+        if simple_noise:
+            image = self.im.simple_noise(image, noise)
+        
+        if complex_noise:
+            image = self.im.complex_noise(image, noise, complex_noise_mode)
 
+        if remove_black_borders:
+            image = self.im.remove_black_borders(image)
+        
+        if blur:
+            image = self.im.blur(image, blur)
+        
+        if simple_edge_detection:
+            image = self.im.simple_edge_detection(image, simple_edge_detection)
+        
+        if crop:
+            image = self.im.crop(image, crop)
+        
+        if rotate:
+            image = self.im.rotate(image, rotate)
+        
+        if resize:
+            image = self.im.resize(image, resize)
+        
+        if scale:
+            image = self.im.scale(image, scale)
+        
+        # get image name without extension
         image_name = os.path.splitext(os.path.basename(image_path))[0]
+
+        # output path with prefix and suffix and specified format/ext
         output_path = os.path.join(output_dir, f"{prefix}{image_name}{suffix}.{output_format}")
 
         self.im.save_image(image, output_path, quality=quality)
+        
         self.logger.info(f"Image saved to \"{output_dir}\"")
-
-    def batch_degrade_images(
-            self,
-            input_dir,
-            output_dir="result",
-            output_format="jpg",
-            saturation=None,
-            brightness=None,
-            contrast=None,
-            sharpness=None,
-            noise=None,
-            quality=100,
-            prefix="",
-            suffix="",
-        ):
-
-        # check the input dir path
-        if not self.file_handler.verify_path(input_dir):
-            raise FileNotFoundError(f"Folder path \"{input_dir}\" not found.")
-        
-        image_files = self.file_handler.get_images(dir_path=input_dir)
-
-        os.makedirs(output_dir, exist_ok=True)
-        
-        for image_path in image_files:
-            self.degrade_image(
-                image_path=image_path,
-                mode="batch",
-                output_dir=output_dir,
-                output_format=output_format,
-                saturation=saturation,
-                brightness=brightness,
-                contrast=contrast,
-                sharpness=sharpness,
-                noise=noise,
-                quality=quality,
-                prefix=prefix,
-                suffix=suffix,
-            )
